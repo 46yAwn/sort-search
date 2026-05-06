@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search Game Adventure</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Fredoka', sans-serif; }
+    
+    .card {
+      perspective: 1000px;
+      cursor: pointer;
+      width: 70px; 
+      height: 95px; 
+      position: relative;
+    }
+    
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    
+    .card.active .card-inner {
+      transform: rotateY(180deg);
+    }
+    
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+    
+    .card-front {
+      background: linear-gradient(135deg, #d977b6, #b794f6);
+      border: 2px solid #e9b3d8;
+      color: white;
+      font-size: 24px;
+      box-shadow: 0 4px 10px rgba(217, 119, 182, 0.2);
+    }
+    
+    .card-back {
+      transform: rotateY(180deg);
+      background: white;
+      border: 2px solid #d977b6;
+      color: #6b21a8;
+    }
+
+    .card.found .card-back {
+      background: #dcfce7;
+      border-color: #22c55e;
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+    }
+
+    @keyframes jump {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+    .jump { animation: jump 0.5s ease; }
+
+    #cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .comparison-log {
+      padding: 8px;
+      border-left: 4px solid #d977b6;
+      background: #fdf2f8;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #d977b6; border-radius: 3px; }
+  </style>
+</head>
+<body class="h-full bg-pink-50">
+  <div id="app" class="h-full w-full overflow-auto" style="background: linear-gradient(135deg, #fce7f3 0%, #e0d5ff 30%, #dbeafe 60%, #fef0ff 100%);">
+    
+    <header class="text-center p-6">
+      <h1 class="text-4xl md:text-5xl font-black mb-2" style="background: linear-gradient(135deg, #d946a6, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+        🎮 Search Game Adventure
+      </h1>
+      <p class="text-lg text-purple-700 font-bold">Temukan angka rahasia di balik kartu! 🔍</p>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 pb-10">
+      
+      <section class="mb-6 bg-white/60 backdrop-blur rounded-2xl p-6 border border-pink-200 shadow-sm">
+        <h2 class="text-xl font-bold text-purple-800 mb-4 flex items-center gap-2">
+          <i data-lucide="book-open" class="text-pink-500"></i> Pilih Metode Pencarian
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button id="btn-linear" class="p-4 rounded-xl border-2 border-pink-300 bg-pink-100/50 hover:bg-pink-200 transition-all flex items-center gap-3">
+            <span class="text-3xl">📝</span>
+            <div class="text-left">
+              <div class="font-bold text-purple-900">Linear Search</div>
+              <div class="text-xs text-purple-700">Cari satu per satu dari awal</div>
+            </div>
+          </button>
+          <button id="btn-binary" class="p-4 rounded-xl border-2 border-purple-200 bg-purple-50/50 hover:bg-purple-100 transition-all flex items-center gap-3">
+            <span class="text-3xl">⚡</span>
+            <div class="text-left">
+              <div class="font-bold text-purple-900">Binary Search</div>
+              <div class="text-xs text-purple-700">Bagi 2 setiap langkah</div>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <section class="bg-white/80 rounded-3xl p-6 shadow-xl border border-pink-100 mb-6">
+        <div class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+          <div>
+            <p class="text-purple-700 font-bold">Cari angka:</p>
+            <span id="target-number" class="text-5xl font-black text-pink-500">?</span>
+            <p id="mode-name" class="text-purple-600 font-bold mt-1 italic">Pilih mode untuk mulai</p>
+          </div>
+          <button id="btn-new-game" class="bg-gradient-to-r from-pink-400 to-purple-400 text-white px-6 py-3 rounded-xl font-bold hover:scale-105 transition-transform flex items-center gap-2 shadow-lg">
+            <i data-lucide="refresh-cw"></i> Acak Kartu Baru
+          </button>
+        </div>
+
+        <div id="cards-container" class="mb-8"></div>
+
+        <div class="grid grid-cols-3 gap-4 text-center">
+          <div class="p-3 bg-pink-50 rounded-xl border border-pink-100">
+            <div class="text-xs text-gray-500 uppercase">Perbandingan</div>
+            <div id="comparisons-count" class="text-2xl font-bold text-purple-800">0</div>
+          </div>
+          <div class="p-3 bg-pink-50 rounded-xl border border-pink-100">
+            <div class="text-xs text-gray-500 uppercase">Langkah</div>
+            <div id="steps-count" class="text-2xl font-bold text-purple-800">0</div>
+          </div>
+          <div class="p-3 bg-pink-50 rounded-xl border border-pink-100">
+            <div class="text-xs text-gray-500 uppercase">Status</div>
+            <div id="status-text" class="text-sm font-bold text-pink-600">Siap</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white/60 rounded-2xl p-4 border border-pink-200 mb-6">
+        <h3 class="font-bold text-purple-800 mb-2 flex items-center gap-2">
+          <i data-lucide="list-checks" class="w-4 h-4"></i> Log Proses:
+        </h3>
+        <div id="comparison-log" class="max-h-32 overflow-y-auto space-y-1">
+          <p class="text-gray-400 text-sm italic">Mulai permainan untuk melihat log...</p>
+        </div>
+      </section>
+
+      <section class="bg-white/60 backdrop-blur rounded-2xl p-6 border border-pink-200">
+        <h2 class="text-lg font-bold text-purple-800 mb-3 flex items-center gap-2">
+          <i data-lucide="lightbulb" class="text-yellow-500"></i> Cara Bermain
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-gradient-to-br from-pink-100 to-pink-50 border border-pink-300 rounded-xl p-4">
+            <h3 class="font-bold text-pink-700 mb-2">📝 Linear Search</h3>
+            <p class="text-purple-700 text-sm">Sistem akan memeriksa kartu satu per satu dari urutan pertama sampai ketemu. Sederhana, tapi butuh waktu lama jika angkanya di akhir!</p>
+          </div>
+          <div class="bg-gradient-to-br from-purple-100 to-purple-50 border border-purple-300 rounded-xl p-4">
+            <h3 class="font-bold text-purple-700 mb-2">⚡ Binary Search</h3>
+            <p class="text-purple-700 text-sm">Sistem langsung mengecek kartu tengah. Jika angka tengah salah, separuh kartu yang tidak mungkin langsung dibuang. Jauh lebih cepat!</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      if (type === 'compare') { 
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+      } else if (type === 'win') {
+        [523, 659, 783, 1046].forEach((f, i) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.connect(g); g.connect(audioCtx.destination);
+          o.frequency.setValueAtTime(f, audioCtx.currentTime + (i * 0.15));
+          g.gain.setValueAtTime(0.03, audioCtx.currentTime + (i * 0.15));
+          o.start(audioCtx.currentTime + (i * 0.15)); o.stop(audioCtx.currentTime + (i * 0.15) + 0.5);
+        });
+      }
+    }
+
+    const animals = ['🐰', '🦊', '🐻', '🐼', '🐨', '🦁', '🐸', '🐯', '🐹', '🐭', '🐱', '🐶'];
+    let cards = [];
+    let target = 0;
+    let isSearching = false;
+
+    function renderCards(data) {
+      const container = document.getElementById('cards-container');
+      container.innerHTML = '';
+      data.forEach((num, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = `card-${idx}`;
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">?</div>
+            <div class="card-back">
+              <span class="text-2xl mb-1">${animals[idx % animals.length]}</span>
+              <span class="text-sm font-bold">${num}</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function addLog(msg) {
+      const log = document.getElementById('comparison-log');
+      if (log.querySelector('p.italic')) log.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'comparison-log';
+      div.innerText = msg;
+      log.prepend(div);
+    }
+
+    function updateStats(comp, step, status) {
+      document.getElementById('comparisons-count').innerText = comp;
+      document.getElementById('steps-count').innerText = step;
+      document.getElementById('status-text').innerText = status;
+    }
+
+    function resetVisuals() {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active', 'found', 'jump'));
+      document.getElementById('comparison-log').innerHTML = '';
+    }
+
+    async function linearSearch() {
+      if (isSearching) return;
+      isSearching = true;
+      resetVisuals();
+      
+      for (let i = 0; i < cards.length; i++) {
+        updateStats(i + 1, i + 1, 'Mencari...');
+        const el = document.getElementById(`card-${i}`);
+        el.classList.add('active', 'jump');
+        playSound('compare');
+        addLog(`Periksa kartu ke-${i+1}: nilainya ${cards[i]}`);
+        
+        await new Promise(r => setTimeout(r, 600));
+        el.classList.remove('jump');
+
+        if (cards[i] === target) {
+          el.classList.add('found');
+          updateStats(i + 1, i + 1, 'KETEMU!');
+          addLog(`🏆 KETEMU! Angka ${target} ada di urutan ke-${i+1}`);
+          playSound('win');
+          isSearching = false;
+          return;
+        }
+      }
+      isSearching = false;
+    }
+
+    async function binarySearch() {
+      if (isSearching) return;
+      isSearching = true;
+      resetVisuals();
+
+      let low = 0, high = cards.length - 1, step = 0;
+      while (low <= high) {
+        step++;
+        let mid = Math.floor((low + high) / 2);
+        const el = document.getElementById(`card-${mid}`);
+        el.classList.add('active', 'jump');
+        playSound('compare');
+        addLog(`Binary: Cek tengah (Indeks ${mid}) -> Nilai ${cards[mid]}`);
+        updateStats(step, step, 'Membagi data...');
+
+        await new Promise(r => setTimeout(r, 800));
+        el.classList.remove('jump');
+
+        if (cards[mid] === target) {
+          el.classList.add('found');
+          updateStats(step, step, 'KETEMU!');
+          addLog(`🏆 Hore! Angka ditemukan di indeks ${mid}`);
+          playSound('win');
+          isSearching = false;
+          return;
+        } else if (cards[mid] < target) {
+          addLog(`${cards[mid]} kekecilan, buang sisi kiri.`);
+          low = mid + 1;
+        } else {
+          addLog(`${cards[mid]} kegedean, buang sisi kanan.`);
+          high = mid - 1;
+        }
+      }
+      isSearching = false;
+    }
+
+    function initGame() {
+      let set = new Set();
+      while(set.size < 9) set.add(Math.floor(Math.random() * 100)); // Diubah jadi 9 kartu
+      cards = Array.from(set).sort((a,b) => a-b);
+      target = cards[Math.floor(Math.random() * cards.length)];
+      
+      document.getElementById('target-number').innerText = target;
+      renderCards(cards);
+      updateStats(0, 0, 'Siap');
+      isSearching = false;
+    }
+
+    document.getElementById('btn-new-game').addEventListener('click', initGame);
+    document.getElementById('btn-linear').addEventListener('click', () => {
+      document.getElementById('mode-name').innerText = '📝 Mode: Linear Search';
+      linearSearch();
+    });
+    document.getElementById('btn-binary').addEventListener('click', () => {
+      document.getElementById('mode-name').innerText = '⚡ Mode: Binary Search';
+      binarySearch();
+    });
+
+    window.onload = () => {
+      initGame();
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
